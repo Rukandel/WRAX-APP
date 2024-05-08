@@ -137,7 +137,7 @@ class PlayScene extends Phaser.Scene {
     if (!this.isGameRunning) return;
     this.ground.tilePositionX += this.gameSpeed;
 
-    if (this.dino.body.deltaAbsY() > 0) {
+    if (this.dino.body.velocity.y !== 0) {
       this.dino.anims.stop();
       this.dino.setTexture("dino");
     } else {
