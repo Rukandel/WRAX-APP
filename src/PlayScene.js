@@ -187,7 +187,8 @@ class PlayScene extends Phaser.Scene {
         }
 
         this.score++;
-        this.gameSpeed += 0.01;
+        this.gameSpeed += 0.01; // increase game speed
+        console.log(this.gameSpeed);
 
         // const score = Array.from(this.score.toString(), Number);
         // for(let i = 0; i < 6 - score.length; i++) {
