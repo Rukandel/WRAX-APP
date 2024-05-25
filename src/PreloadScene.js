@@ -17,6 +17,13 @@ class PreloadScene extends Phaser.Scene {
     this.load.image("game-over", "assets/game-over.png");
     this.load.image("cloud", "assets/cloud.png");
 
+    this.load.atlas("coin", "assets/coin/coin.png", "assets/coin/coin.json");
+
+    //for buttons
+    this.load.image("profile", "assets/buttons/profile.png");
+    this.load.image("quests", "assets/buttons/swords.png");
+    this.load.image("boosts", "assets/buttons/boosts.png");
+
     this.load.spritesheet("star", "assets/stars.png", {
       frameWidth: 9,
       frameHeight: 9,
