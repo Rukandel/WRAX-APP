@@ -1,11 +1,19 @@
 import Phaser from "phaser";
 
+import GameOverContainer from "../containers/GameOver";
+import { GAME_EVENTS } from "../constants";
+
 class PlayScene extends Phaser.Scene {
+  gameOverContainer;
+  eventEmitter;
+
   constructor() {
     super("PlayScene");
   }
 
   create() {
+    this.initEmitter();
+
     this.isGameRunning = false;
     this.gameSpeed = 10;
     this.respawnTime = 0;
@@ -24,7 +32,8 @@ class PlayScene extends Phaser.Scene {
       .setScrollFactor(0, 0)
       .setOrigin(0, 0);
 
-    const { height, width } = this.game.config;
+    // const { height, width } = this.game.config;
+    const { width, height } = this.scale;
 
     this.startTrigger = this.physics.add
       .sprite(0, 10)
@@ -36,6 +45,7 @@ class PlayScene extends Phaser.Scene {
     this.dino = this.physics.add
       .sprite(0, height, "dino-idle")
       .setOrigin(0, 1)
+      .setDepth(10)
       .setCollideWorldBounds(true)
       .setGravityY(5000); //Скорость падения
 
@@ -57,11 +67,12 @@ class PlayScene extends Phaser.Scene {
       .setOrigin(1, 0)
       .setAlpha(0);
 
-    this.gameOverScreen = this.add
-      .container(width / 2, height / 2 - 50)
-      .setAlpha(0);
-    this.gameOverText = this.add.image(0, 0, "game-over");
-    this.restart = this.add.image(0, 80, "restart").setInteractive();
+    // this.gameOverScreen = this.add
+    //   .container(width / 2, height / 2 - 50)
+    //   .setAlpha(0);
+    this.gameOverContainer = new GameOverContainer(this, width / 2, height / 2);
+    // this.gameOverText = this.add.image(0, 0, "game-over");
+    // this.restart = this.add.image(0, 80, "restart").setInteractive();
 
     this.environment = this.add.group();
     this.environment.addMultiple([
@@ -72,7 +83,7 @@ class PlayScene extends Phaser.Scene {
 
     this.environment.setAlpha(0);
 
-    this.gameOverScreen.add([this.gameOverText, this.restart]);
+    // this.gameOverScreen.add([this.gameOverText, this.restart]);
 
     this.obsticles = this.physics.add.group();
 
@@ -84,6 +95,7 @@ class PlayScene extends Phaser.Scene {
     this.handleScore();
 
     // Buttons
+    // TODO: вынести кнопки в контейнер и сделать по аналогии с gameOverContainer
     this.buttonBoosts = this.add.image(0, 0, "boosts").setInteractive();
     this.buttonProfile = this.add.image(0, 0, "profile").setInteractive();
     this.buttonQuests = this.add.image(0, 0, "quests").setInteractive();
@@ -149,16 +161,6 @@ class PlayScene extends Phaser.Scene {
     });
 
     this.physics.add.collider(this.coinGroup, this.dino, this.destroyCoin);
-    this.anims.create({
-      key: "coin",
-      frames: this.anims.generateFrameNames("coin", {
-        start: 1,
-        end: 3,
-        suffix: ".png",
-      }),
-      repeat: -1,
-      frameRate: 12,
-    });
 
     this.time.addEvent({
       delay: 3000,
@@ -189,6 +191,33 @@ class PlayScene extends Phaser.Scene {
     }
   }
 
+  gameOver() {
+    this.highScoreText.x = this.scoreText.x - this.scoreText.width - 20;
+
+    const highScore = this.highScoreText.text.substring(
+      this.highScoreText.text.length - 5
+    );
+    const newScore =
+      Number(this.scoreText.text) > Number(highScore)
+        ? this.scoreText.text
+        : highScore;
+
+    this.highScoreText.setText(`High Score: ${newScore}`);
+    this.highScoreText.setAlpha(1);
+
+    this.physics.pause();
+    this.isGameRunning = false;
+    this.anims.pauseAll();
+    this.dino.setTexture("dino-hurt");
+    this.respawnTime = 0;
+    this.gameSpeed = 10;
+    this.gameOverContainer.setVisible(true);
+    this.buttonBoosts.setAlpha(1);
+    this.buttonQuests.setAlpha(1);
+    this.buttonProfile.setAlpha(1);
+    this.score = 0;
+  }
+
   activateCoin(coin) {
     coin.setActive(true).setVisible(true);
   }
@@ -209,32 +238,7 @@ class PlayScene extends Phaser.Scene {
     this.physics.add.collider(
       this.dino,
       this.obsticles,
-      () => {
-        this.highScoreText.x = this.scoreText.x - this.scoreText.width - 20;
-
-        const highScore = this.highScoreText.text.substring(
-          this.highScoreText.text.length - 5
-        );
-        const newScore =
-          Number(this.scoreText.text) > Number(highScore)
-            ? this.scoreText.text
-            : highScore;
-
-        this.highScoreText.setText(`High Score: ${newScore}`);
-        this.highScoreText.setAlpha(1);
-
-        this.physics.pause();
-        this.isGameRunning = false;
-        this.anims.pauseAll();
-        this.dino.setTexture("dino-hurt");
-        this.respawnTime = 0;
-        this.gameSpeed = 10;
-        this.gameOverScreen.setAlpha(1);
-        this.buttonBoosts.setAlpha(1);
-        this.buttonQuests.setAlpha(1);
-        this.buttonProfile.setAlpha(1);
-        this.score = 0;
-      },
+      this.gameOver,
       null,
       this
     );
@@ -311,6 +315,17 @@ class PlayScene extends Phaser.Scene {
       frameRate: 6,
       repeat: -1,
     });
+
+    this.anims.create({
+      key: "coin",
+      frames: this.anims.generateFrameNames("coin", {
+        start: 1,
+        end: 3,
+        suffix: ".png",
+      }),
+      repeat: -1,
+      frameRate: 12,
+    });
   }
 
   handleScore() {
@@ -332,22 +347,27 @@ class PlayScene extends Phaser.Scene {
     });
   }
 
-  handleInputs() {
-    this.restart.on("pointerdown", () => {
-      this.dino.setVelocityY(0);
-      this.dino.body.height = 92;
-      this.dino.body.offset.y = 0;
-      this.physics.resume();
-      this.obsticles.clear(true, true);
-      this.coinGroup.clear(true, true);
-      this.isGameRunning = true;
-      this.gameOverScreen.setAlpha(0);
-      this.buttonBoosts.setAlpha(0);
-      this.buttonQuests.setAlpha(0);
-      this.buttonProfile.setAlpha(0);
-      this.anims.resumeAll();
-    });
+  restart = () => {
+    this.dino.setVelocityY(0);
+    this.dino.body.height = 92;
+    this.dino.body.offset.y = 0;
+    this.physics.resume();
+    this.obsticles.clear(true, true);
+    this.coinGroup.clear(true, true);
+    this.isGameRunning = true;
+    this.gameOverContainer.setVisible(false);
+    this.buttonBoosts.setAlpha(0);
+    this.buttonQuests.setAlpha(0);
+    this.buttonProfile.setAlpha(0);
+    this.anims.resumeAll();
+  };
 
+  initEmitter = () => {
+    // on restart event
+    this.events.on(GAME_EVENTS.RESTART, this.restart);
+  };
+
+  handleInputs = () => {
     this.input.keyboard.on("keydown-SPACE", () => {
       if (!this.dino.body.onFloor()) {
         return;
@@ -373,7 +393,7 @@ class PlayScene extends Phaser.Scene {
       this.dino.body.height = 92;
       this.dino.body.offset.y = 0;
     });
-  }
+  };
 
   placeObsticle() {
     const { width, height } = this.game.config;
